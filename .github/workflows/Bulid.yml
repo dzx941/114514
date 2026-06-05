@@ -47,19 +47,22 @@ jobs:
     - name: Configure and Download Core
       run: |
         cd openwrt-sdk
-        # 写入默认配置并选择该插件
+        # 1. 写入默认配置并正确选择该插件
         make defconfig
         echo "CONFIG_PACKAGE_luci-app-fchomo=m" >> .config
+        # 核心包通常会被自动依赖选中，为了保险也可以手动加上
+        echo "CONFIG_PACKAGE_mihomo=m" >> .config 
         make defconfig
         
-        # 预先下载核心等依赖，防止编译时断网
-        make package/openwrt-fchomo/download V=s
+        # 2. 修正：下载真正的包名依赖
+        make package/luci-app-fchomo/download V=s
 
     - name: Compile Package
       run: |
         cd openwrt-sdk
-        # 开始编译，使用所有可用CPU核心
-        make package/openwrt-fchomo/compile V=s -j$(nproc)
+        # 3. 修正：编译真正的包名，使用所有可用CPU核心
+        make package/luci-app-fchomo/compile V=s -j$(nproc)
+
 
     - name: Organize IPK Files
       run: |
