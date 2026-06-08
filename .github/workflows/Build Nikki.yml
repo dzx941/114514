@@ -1,0 +1,85 @@
+name: build-packages
+
+on:
+  workflow_dispatch: # 支持在 GitHub 页面手动点击按钮触发编译
+
+jobs:
+  build:
+    name: ${{ matrix.arch }}-${{ matrix.branch }} build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # 允许某个老旧架构编译失败时，其他主流架构继续编译
+      matrix:
+        arch:
+          - arm_cortex-a5_vfpv4
+          - arm_cortex-a7_neon-vfpv4
+          - arm_cortex-a8_vfpv3
+          - arm_cortex-a9
+          - arm_cortex-a9_vfpv3-d16
+          - arm_cortex-a9_neon
+          - arm_cortex-a15_neon-vfpv4
+          - aarch64_cortex-a53
+          - aarch64_cortex-a72
+          - aarch64_cortex-a76
+          - aarch64_generic
+          - mips_24kc
+          - mips_4kec
+          - mips_mips32
+          - mipsel_24kc
+          - mipsel_24kc_24kf
+          - mipsel_74kc
+          - mipsel_mips32
+          - mips64_octeonplus
+          - riscv64_riscv64
+          - riscv64_generic
+          - loongarch64_generic
+          - i386_pentium4
+          - x86_64
+        branch:
+          - openwrt-24.10
+          - openwrt-25.12
+          - SNAPSHOT
+        exclude:
+          - arch: mips_4kec
+            branch: openwrt-25.12
+          - arch: mips_4kec
+            branch: SNAPSHOT
+          - arch: riscv64_riscv64
+            branch: openwrt-25.12
+          - arch: riscv64_riscv64
+            branch: SNAPSHOT
+          - arch: riscv64_generic
+            branch: openwrt-24.10
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: build
+        uses: openwrt/gh-action-sdk@main
+        env:
+          ARCH: ${{ matrix.arch }}-${{ matrix.branch }}
+          FEEDNAME: nikki
+          PACKAGES: mihomo-alpha mihomo-meta nikki luci-app-nikki
+          NO_REFRESH_CHECK: true
+        with:
+          # 核心修正：完美注入你提供的 nikkinikki-org 官方最新 Feed 仓库源
+          env: |
+            echo "src-git nikki https://github.com/nikkinikki-org/OpenWrt-nikki.git;main" >> feeds.conf.default
+            ./scripts/feeds update nikki
+            ./scripts/feeds install -a -f -p nikki
+
+      - name: organize
+        run: |
+          # 建立一个干净的临时目录，跨分支收集所有编译成功的 .ipk 独立包
+          mkdir -p ipk_output
+          find bin/ -name "*.ipk" -exec cp {} ipk_output/ \; 2>/dev/null || true
+          
+          echo "=== 成功编译的 IPK 列表 ==="
+          ls -la ipk_output/
+
+      - name: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: nikki_${{ matrix.arch }}-${{ matrix.branch }}
+          path: ipk_output/*
