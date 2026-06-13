@@ -22,7 +22,7 @@ jobs:
     - name: Download and Apply Official SSR Plus Patch
       run: |
         cd dns2tcp
-        # 🚀 完美的直接拉取你找到的 SSR Plus+ 官方原生魔改补丁
+        # 完美的直接拉取你找到的 SSR Plus+ 官方原生魔改补丁
         wget -O ssr-plus-aaaa-filter.patch https://raw.githubusercontent.com/fw876/helloworld/refs/heads/dev/dns2tcp/patches/0001-add-A-option-to-filter-AAAA-answers.patch
         
         # 精准应用补丁修改 C 源码
@@ -31,8 +31,10 @@ jobs:
     - name: Build Static Binary for ARMv7
       run: |
         cd dns2tcp
-        # 使用 ARMv7 交叉编译器进行全静态编译，解开一切依赖锁
-        arm-linux-gnueabi-gcc -O3 -std=c99 -static *.c -o dns2tcp -lrt
+        # 🚀 修正编译命令：
+        # 1. 显式传入 dns2tcp.c 和 evloop.c
+        # 2. 加入 -D_GNU_SOURCE 和 -I. 彻底解决 ev_run 等函数的动态绑定与链接器报错
+        arm-linux-gnueabi-gcc -O3 -std=c99 -D_GNU_SOURCE -I. -static dns2tcp.c evloop.c -o dns2tcp -lrt
         
         # 裁剪二进制文件体积
         arm-linux-gnueabi-strip dns2tcp
