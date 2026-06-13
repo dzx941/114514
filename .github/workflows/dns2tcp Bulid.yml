@@ -45,12 +45,12 @@ jobs:
     - name: Build Static Binary for ARMv7
       run: |
         cd dns2tcp
-        # 🚀 显式指定刚刚编译好的本地 libev 静态库路径和头文件路径：
-        # -I... 指向头文件，-L... 指向静态库所在文件夹
+        # 🚀 补上终极拼图：
+        # 在末尾加上 `-lm`，让链接器把标准数学库也静态打包进来，彻底消灭 `undefined reference to 'floor'`
         arm-linux-gnueabi-gcc -O3 -std=c99 -static \
           -I$GITHUB_WORKSPACE/libev_install/include \
           -L$GITHUB_WORKSPACE/libev_install/lib \
-          dns2tcp.c -o dns2tcp -lev -lrt
+          dns2tcp.c -o dns2tcp -lev -lrt -lm
         
         # 裁剪二进制文件体积
         arm-linux-gnueabi-strip dns2tcp
