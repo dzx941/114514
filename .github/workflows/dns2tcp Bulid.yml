@@ -1,4 +1,4 @@
-name: Compile Static Binary for ARMv7 (Libev Version)
+name: Compile Static Binary for ARMv7 (Libev Auto-Build)
 
 on:
   workflow_dispatch: # 支持在 GitHub 页面上手动点击按钮触发编译
@@ -8,11 +8,25 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Install Tools and Dependencies
+    - name: Install Tools and Cross-Compiler
       run: |
         sudo apt-get update
-        # 安装适用于 32位 ARMv7 的 GCC 交叉编译器、git 和 wget
-        sudo apt-get install -y gcc-arm-linux-gnueabi git wget
+        # 安装适用于 32位 ARMv7 的 GCC 交叉编译器、git、wget 和编译标准件
+        sudo apt-get install -y gcc-arm-linux-gnueabi git wget build-essential
+
+    - name: Download and Build Static Libev for ARMv7
+      run: |
+        # 1. 下载经典稳定的 libev 4.33 源码
+        wget http://dist.schmorp.de/libev/libev-4.33.tar.gz
+        tar -zxf libev-4.33.tar.gz
+        cd libev-4.33
+        
+        # 2. 配置交叉编译参数，指定生成静态库
+        ./configure --host=arm-linux-gnueabi --prefix=$GITHUB_WORKSPACE/libev_install --enable-static --disable-shared
+        
+        # 3. 编译并安装到临时目录
+        make -j$(nproc)
+        make install
 
     - name: Clone zfl9/dns2tcp Source
       run: |
@@ -22,7 +36,7 @@ jobs:
     - name: Download and Apply Official SSR Plus Patch
       run: |
         cd dns2tcp
-        # 🚀 从官方仓库直接下载针对 libev 版本的 AAAA 过滤补丁
+        # 从官方仓库直接下载针对 libev 版本的 AAAA 过滤补丁
         wget -O ssr-plus-aaaa-filter.patch https://raw.githubusercontent.com/fw876/helloworld/refs/heads/dev/dns2tcp/patches/0001-add-A-option-to-filter-AAAA-answers.patch
         
         # 精准应用补丁修改 C 源码
@@ -31,12 +45,12 @@ jobs:
     - name: Build Static Binary for ARMv7
       run: |
         cd dns2tcp
-        # 🚀 针对你发出的具体源码进行编译适配：
-        # 1. 编译纯单文件 dns2tcp.c
-        # 2. 移除 -I.（因为 libev 头文件由系统的交叉编译器路径管理）
-        # 3. 显式添加 `-lev` 开关，让链接器去抓取事件循环库
-        # 4. 保持 -static 全静态打包，确保无依赖输出
-        arm-linux-gnueabi-gcc -O3 -std=c99 -static dns2tcp.c -o dns2tcp -lev -lrt
+        # 🚀 显式指定刚刚编译好的本地 libev 静态库路径和头文件路径：
+        # -I... 指向头文件，-L... 指向静态库所在文件夹
+        arm-linux-gnueabi-gcc -O3 -std=c99 -static \
+          -I$GITHUB_WORKSPACE/libev_install/include \
+          -L$GITHUB_WORKSPACE/libev_install/lib \
+          dns2tcp.c -o dns2tcp -lev -lrt
         
         # 裁剪二进制文件体积
         arm-linux-gnueabi-strip dns2tcp
